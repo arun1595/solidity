@@ -109,6 +109,7 @@ private:
 	virtual bool visit(VariableDeclarationStatement const& _variableDeclarationStatement) override;
 	virtual bool visit(ExpressionStatement const& _expressionStatement) override;
 	virtual bool visit(PlaceholderStatement const&) override;
+	virtual void endVisit(Block const& _block) override;
 
 	/// Repeatedly visits all function which are referenced but which are not compiled yet.
 	void appendMissingFunctions();
@@ -123,12 +124,25 @@ private:
 	/// @returns the runtime assembly for clone contracts.
 	eth::AssemblyPointer cloneRuntime() const;
 
+	/// Adds a new scoped variable.
+	void addScopedVariable(VariableDeclaration const& _decl);
+
+	/// Frees the variables of a certain scope (to be used when leaving).
+	void popBlockScopedVariables(ASTNode const* _node);
+
+	void freeLocalLoopVariables(
+		eth::AssemblyItem const& loopTag,
+		std::shared_ptr<eth::AssemblyItem> jumpTo = nullptr
+	);
+
+	bool visitBreakContinue(Statement const* _statement);
+
+	void endVisitLoop(BreakableStatement const* _loop);
+
 	bool const m_optimise;
 	/// Pointer to the runtime compiler in case this is a creation compiler.
 	ContractCompiler* m_runtimeCompiler = nullptr;
 	CompilerContext& m_context;
-	std::vector<eth::AssemblyItem> m_breakTags; ///< tag to jump to for a "break" statement
-	std::vector<eth::AssemblyItem> m_continueTags; ///< tag to jump to for a "continue" statement
 	/// Tag to jump to for a "return" statement, needs to be stacked because of modifiers.
 	std::vector<eth::AssemblyItem> m_returnTags;
 	unsigned m_modifierDepth = 0;
@@ -136,6 +150,12 @@ private:
 	unsigned m_stackCleanupForReturn = 0; ///< this number of stack elements need to be removed before jump to m_returnTag
 	// arguments for base constructors, filled in derived-to-base order
 	std::map<FunctionDefinition const*, ASTNode const*> const* m_baseArguments;
+
+	/// Stores the variables that were declared inside a specific scope.
+	std::map<ASTNode const*, std::vector<VariableDeclaration const*>> m_scopedVariables;
+	std::map<ASTNode const*, std::set<VariableDeclaration const*>> m_loopScopedVariables;
+	std::stack<BreakableStatement const*> m_loops;
+	std::vector<std::pair<unsigned, eth::AssemblyItem>> m_breakTagsPops;
 };
 
 }
