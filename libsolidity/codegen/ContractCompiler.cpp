@@ -802,12 +802,20 @@ bool ContractCompiler::visit(Return const& _return)
 			CompilerUtils(m_context).moveToStackVariable(*retVariable);
 	}
 	CompilerUtils utils(m_context);
+	unsigned toAdjust = 0;
 	for (auto _varDecl : m_scopedVariables)
-		m_stackCleanupForReturn += utils.sizeOnStack(_varDecl.second);
+	{
+		for (auto _decl : _varDecl.second)
+		{
+			CompilerContext::LocationSetter locationSetter(m_context, *_decl);
+			utils.popStackElement(*_decl->type());
+		}
+		toAdjust += _varDecl.second.size();
+	}
+	m_context.adjustStackOffset(m_stackCleanupForReturn + toAdjust);
 	for (unsigned i = 0; i < m_stackCleanupForReturn; ++i)
 		m_context << Instruction::POP;
 	m_context.appendJumpTo(m_returnTags.back());
-	m_context.adjustStackOffset(m_stackCleanupForReturn);
 	return false;
 }
 
