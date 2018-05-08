@@ -801,8 +801,9 @@ bool ContractCompiler::visit(Return const& _return)
 		for (auto const& retVariable: boost::adaptors::reverse(returnParameters))
 			CompilerUtils(m_context).moveToStackVariable(*retVariable);
 	}
-//	for (auto _localVar : m_scopedVariables)
-//		m_stackCleanupForReturn += _localVar.second.size();
+	CompilerUtils utils(m_context);
+	for (auto _varDecl : m_scopedVariables)
+		m_stackCleanupForReturn += utils.sizeOnStack(_varDecl.second);
 	for (unsigned i = 0; i < m_stackCleanupForReturn; ++i)
 		m_context << Instruction::POP;
 	m_context.appendJumpTo(m_returnTags.back());
